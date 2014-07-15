@@ -35,10 +35,10 @@ type Item interface {
 
 //
 func less(x, y Item) bool {
-	if x == pinf {
+	if x == pinf || y == ninf {
 		return false
 	}
-	if x == ninf {
+	if x == ninf || y == pinf {
 		return true
 	}
 	return x.Less(y)
@@ -173,7 +173,7 @@ func (t *LLRB) replaceOrInsert(h *Node, item Item) (*Node, Item) {
 		return newNode(item), nil
 	}
 
-	h = walkDownRot23(h)
+	h = h.walkDownRot23()
 
 	var replaced Item
 	if less(item, h.Item) { // BUG
@@ -190,7 +190,7 @@ func (t *LLRB) replaceOrInsert(h *Node, item Item) (*Node, Item) {
 		replaced, h.Item = h.Item, item
 	}
 
-	h = walkUpRot23(h)
+	h = h.walkUpRot23()
 
 	return h, replaced
 }
@@ -210,7 +210,7 @@ func (t *LLRB) insertNoReplace(h *Node, item Item) *Node {
 		return newNode(item)
 	}
 
-	h = walkDownRot23(h)
+	h = h.walkDownRot23()
 
 	if less(item, h.Item) {
 		h.Left = t.insertNoReplace(h.Left, item)
@@ -219,24 +219,24 @@ func (t *LLRB) insertNoReplace(h *Node, item Item) *Node {
 	}
 	h.count++
 
-	return walkUpRot23(h)
+	return h.walkUpRot23()
 }
 
 // Rotation driver routines for 2-3 algorithm
 
-func walkDownRot23(h *Node) *Node { return h }
+func (h *Node) walkDownRot23() *Node { return h }
 
-func walkUpRot23(h *Node) *Node {
-	if isRed(h.Right) && !isRed(h.Left) {
-		h = rotateLeft(h)
+func (h *Node) walkUpRot23() *Node {
+	if h.Right.isRed() && !h.Left.isRed() {
+		h = h.rotateLeft()
 	}
 
-	if isRed(h.Left) && isRed(h.Left.Left) {
-		h = rotateRight(h)
+	if h.Left.isRed() && h.Left.Left.isRed() {
+		h = h.rotateRight()
 	}
 
-	if isRed(h.Left) && isRed(h.Right) {
-		flip(h)
+	if h.Left.isRed() && h.Right.isRed() {
+		h.flip()
 	}
 
 	return h
@@ -244,21 +244,21 @@ func walkUpRot23(h *Node) *Node {
 
 // Rotation driver routines for 2-3-4 algorithm
 
-func walkDownRot234(h *Node) *Node {
-	if isRed(h.Left) && isRed(h.Right) {
-		flip(h)
+func (h *Node) walkDownRot234() *Node {
+	if h.Left.isRed() && h.Right.isRed() {
+		h.flip()
 	}
 
 	return h
 }
 
-func walkUpRot234(h *Node) *Node {
-	if isRed(h.Right) && !isRed(h.Left) {
-		h = rotateLeft(h)
+func (h *Node) walkUpRot234() *Node {
+	if h.Right.isRed() && !h.Left.isRed() {
+		h = h.rotateLeft()
 	}
 
-	if isRed(h.Left) && isRed(h.Left.Left) {
-		h = rotateRight(h)
+	if h.Left.isRed() && h.Left.Left.isRed() {
+		h = h.rotateRight()
 	}
 
 	return h
@@ -268,7 +268,7 @@ func walkUpRot234(h *Node) *Node {
 // deleted item or nil otherwise.
 func (t *LLRB) DeleteMin() Item {
 	var deleted Item
-	t.root, deleted = deleteMin(t.root)
+	t.root, deleted = t.root.deleteMin()
 	if t.root != nil {
 		t.root.Black = true
 	}
@@ -276,7 +276,7 @@ func (t *LLRB) DeleteMin() Item {
 }
 
 // deleteMin code for LLRB 2-3 trees
-func deleteMin(h *Node) (*Node, Item) {
+func (h *Node) deleteMin() (*Node, Item) {
 	if h == nil {
 		return nil, nil
 	}
@@ -284,50 +284,50 @@ func deleteMin(h *Node) (*Node, Item) {
 		return nil, h.Item
 	}
 
-	if !isRed(h.Left) && !isRed(h.Left.Left) {
-		h = moveRedLeft(h)
+	if !h.Left.isRed() && !h.Left.Left.isRed() {
+		h = h.moveRedLeft()
 	}
 
 	var deleted Item
-	h.Left, deleted = deleteMin(h.Left)
+	h.Left, deleted = h.Left.deleteMin()
 	if deleted != nil {
 		h.count--
 	}
 
-	return fixUp(h), deleted
+	return h.fixUp(), deleted
 }
 
 // DeleteMax deletes the maximum element in the tree and returns
 // the deleted item or nil otherwise
 func (t *LLRB) DeleteMax() Item {
 	var deleted Item
-	t.root, deleted = deleteMax(t.root)
+	t.root, deleted = t.root.deleteMax()
 	if t.root != nil {
 		t.root.Black = true
 	}
 	return deleted
 }
 
-func deleteMax(h *Node) (*Node, Item) {
+func (h *Node) deleteMax() (*Node, Item) {
 	if h == nil {
 		return nil, nil
 	}
-	if isRed(h.Left) {
-		h = rotateRight(h)
+	if h.Left.isRed() {
+		h = h.rotateRight()
 	}
 	if h.Right == nil {
 		return nil, h.Item
 	}
-	if !isRed(h.Right) && !isRed(h.Right.Left) {
-		h = moveRedRight(h)
+	if !h.Right.isRed() && !h.Right.Left.isRed() {
+		h = h.moveRedRight()
 	}
 	var deleted Item
-	h.Right, deleted = deleteMax(h.Right)
+	h.Right, deleted = h.Right.deleteMax()
 	if deleted != nil {
 		h.count--
 	}
 
-	return fixUp(h), deleted
+	return h.fixUp(), deleted
 }
 
 // Delete deletes an item from the tree whose key equals key.
@@ -350,53 +350,57 @@ func (t *LLRB) delete(h *Node, item Item) (*Node, Item) {
 		if h.Left == nil { // item not present. Nothing to delete
 			return h, nil
 		}
-		if !isRed(h.Left) && !isRed(h.Left.Left) {
-			h = moveRedLeft(h)
+		if !h.Left.isRed() && !h.Left.Left.isRed() {
+			h = h.moveRedLeft()
 		}
 		h.Left, deleted = t.delete(h.Left, item)
 	} else {
-		if isRed(h.Left) {
-			h = rotateRight(h)
+		if h.Left.isRed() {
+			h = h.rotateRight()
 		}
 		// If @item equals @h.Item and no right children at @h
 		if !less(h.Item, item) && h.Right == nil {
 			return nil, h.Item
 		}
 		// PETAR: Added 'h.Right != nil' below
-		if h.Right != nil && !isRed(h.Right) && !isRed(h.Right.Left) {
-			h = moveRedRight(h)
-		}
-		// If @item equals @h.Item, and (from above) 'h.Right != nil'
-		if !less(h.Item, item) {
-			var subDeleted Item
-			h.Right, subDeleted = deleteMin(h.Right)
-			if subDeleted == nil {
-				panic("logic")
+		// foobaz: Added 'h.Left != nil' below
+		//if h.Left != nil && h.Right != nil && !h.Right.isRed() && !h.Right.Left.isRed() {
+		if h.Right != nil {
+			if !h.Right.isRed() && !h.Right.Left.isRed() {
+				h = h.moveRedRight()
 			}
-			deleted, h.Item = h.Item, subDeleted
-		} else { // Else, @item is bigger than @h.Item
-			h.Right, deleted = t.delete(h.Right, item)
+			// If @item equals @h.Item, and (from above) 'h.Right != nil'
+			if !less(h.Item, item) {
+				var subDeleted Item
+				h.Right, subDeleted = h.Right.deleteMin()
+				if subDeleted == nil {
+					panic("logic")
+				}
+				deleted, h.Item = h.Item, subDeleted
+			} else { // Else, @item is bigger than @h.Item
+				h.Right, deleted = t.delete(h.Right, item)
+			}
 		}
 	}
 	if deleted != nil {
 		h.count--
 	}
 
-	return fixUp(h), deleted
+	return h.fixUp(), deleted
 }
 
 // Internal node manipulation routines
 
 func newNode(item Item) *Node { return &Node{Item: item, count: 1} }
 
-func isRed(h *Node) bool {
+func (h *Node) isRed() bool {
 	if h == nil {
 		return false
 	}
 	return !h.Black
 }
 
-func rotateLeft(h *Node) *Node {
+func (h *Node) rotateLeft() *Node {
 	x := h.Right
 	if x.Black {
 		panic("rotating a black link")
@@ -414,7 +418,7 @@ func rotateLeft(h *Node) *Node {
 	return x
 }
 
-func rotateRight(h *Node) *Node {
+func (h *Node) rotateRight() *Node {
 	x := h.Left
 	if x.Black {
 		panic("rotating a black link")
@@ -433,44 +437,48 @@ func rotateRight(h *Node) *Node {
 }
 
 // REQUIRE: Left and Right children must be present
-func flip(h *Node) {
+func (h *Node) flip() {
 	h.Black = !h.Black
-	h.Left.Black = !h.Left.Black
-	h.Right.Black = !h.Right.Black
+	if h.Left != nil {
+		h.Left.Black = !h.Left.Black
+	}
+	if h.Right != nil {
+		h.Right.Black = !h.Right.Black
+	}
 }
 
 // REQUIRE: Left and Right children must be present
-func moveRedLeft(h *Node) *Node {
-	flip(h)
-	if isRed(h.Right.Left) {
-		h.Right = rotateRight(h.Right)
-		h = rotateLeft(h)
-		flip(h)
+func (h *Node) moveRedLeft() *Node {
+	h.flip()
+	if h.Right != nil && h.Right.Left.isRed() {
+		h.Right = h.Right.rotateRight()
+		h = h.rotateLeft()
+		h.flip()
 	}
 	return h
 }
 
 // REQUIRE: Left and Right children must be present
-func moveRedRight(h *Node) *Node {
-	flip(h)
-	if isRed(h.Left.Left) {
-		h = rotateRight(h)
-		flip(h)
+func (h *Node) moveRedRight() *Node {
+	h.flip()
+	if h.Left != nil && h.Left.Left.isRed() {
+		h = h.rotateRight()
+		h.flip()
 	}
 	return h
 }
 
-func fixUp(h *Node) *Node {
-	if isRed(h.Right) {
-		h = rotateLeft(h)
+func (h *Node) fixUp() *Node {
+	if h.Right.isRed() {
+		h = h.rotateLeft()
 	}
 
-	if isRed(h.Left) && isRed(h.Left.Left) {
-		h = rotateRight(h)
+	if h.Left.isRed() && h.Left.Left.isRed() {
+		h = h.rotateRight()
 	}
 
-	if isRed(h.Left) && isRed(h.Right) {
-		flip(h)
+	if h.Left.isRed() && h.Right.isRed() {
+		h.flip()
 	}
 
 	return h
