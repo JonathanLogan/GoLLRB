@@ -2,9 +2,9 @@ package llrb
 
 type ItemIterator func(i Item) bool
 
-//func (t *Tree) Ascend(iterator ItemIterator) {
-//	t.AscendGreaterOrEqual(Inf(-1), iterator)
-//}
+func (t *LLRB) Ascend(iterator ItemIterator) {
+	t.AscendGreaterOrEqual(Inf(-1), iterator)
+}
 
 func (t *LLRB) AscendRange(greaterOrEqual, lessThan Item, iterator ItemIterator) {
 	t.ascendRange(t.root, greaterOrEqual, lessThan, iterator)
